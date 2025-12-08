@@ -193,9 +193,9 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
 
 	addr_dest = eth_h->d_addr;
-	addr1 = addr_dest.addr_bytes[4];
-	addr2 = addr_dest.addr_bytes[5];
-	vlid = ((u_int16_t)addr1 << 8) + addr2;
+	addr1 = addr_dest.addr_bytes[4];//première partie du champs vl de l'adresse destination
+	addr2 = addr_dest.addr_bytes[5];//Seconde partie du champs vl de l'adresse destination
+	vlid = ((u_int16_t)addr1 << 8) + addr2;//de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 	dst_port = l2fwd_vl_dst_ports[vlid];
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
@@ -206,6 +206,7 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 }
 
 void load_routes(const char *filename)
+/*outil pour charger les routes depuis un fichiers de configuration*/
 {
 	FILE *fp = fopen(filename, "r");
 	if (!fp)
