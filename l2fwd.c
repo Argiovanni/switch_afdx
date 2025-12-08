@@ -578,6 +578,7 @@ int main(int argc, char **argv)
 	uint8_t nb_ports;
 	uint8_t nb_ports_available;
 	uint8_t portid, last_port;
+	uint16_t vlid;
 	unsigned lcore_id, rx_lcore_id;
 	unsigned nb_ports_in_mask = 0;
 
@@ -615,7 +616,7 @@ int main(int argc, char **argv)
 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++)
 		l2fwd_dst_ports[portid] = 0;
 	/* reset l2fwd_vl_dst_ports */
-	for (uint16_t vlid = 0; vlid < RTE_MAX_VLPORTS; vlid++)
+	for (vlid = 0; vlid < RTE_MAX_VLPORTS; vlid++)
 		l2fwd_vl_dst_ports[vlid] = 0;
 	load_routes("route.txt");
 	last_port = 0;
