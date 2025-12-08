@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include <rte_common.h>
 #include <rte_log.h>
@@ -117,6 +118,7 @@ struct l2fwd_port_statistics
 	uint64_t tx;
 	uint64_t rx;
 	uint64_t dropped;
+	time_t max_time = 0;
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
@@ -355,7 +357,8 @@ l2fwd_main_loop(void)
 		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u portid=%u\n", lcore_id,
 				portid);
 	}
-
+	time_t start;
+	time_t end;
 	while (!force_quit)
 	{
 
@@ -373,7 +376,10 @@ l2fwd_main_loop(void)
 				buffer = tx_buffer[portid];
 
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
+
 				if (sent)
+					end  = time.now();
+					port_statistics[max_time]= (port_statistics[max_time]>(end-start))?port_statistics[max_time]:end-start;
 					port_statistics[portid].tx += sent;
 			}
 
@@ -410,7 +416,7 @@ l2fwd_main_loop(void)
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
 									 pkts_burst, MAX_PKT_BURST);
-
+			start = time.now();
 			port_statistics[portid].rx += nb_rx;
 			for (j = 0; j < nb_rx; j++)
 			{
