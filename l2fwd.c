@@ -71,7 +71,16 @@ static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
 
 #define RTE_MAX_VLPORTS 65535
 static uint32_t l2fwd_vl_dst_ports[RTE_MAX_VLPORTS];
-void load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
+
+typedef struct port_node
+{
+	unsigned port_id;
+	struct port_node *next;
+} port_node_t;
+static port_node_t l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS]
+
+	void
+	load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
 
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
@@ -195,9 +204,9 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
 
 	addr_dest = eth_h->d_addr;
-	addr1 = addr_dest.addr_bytes[4];//première partie du champs vl de l'adresse destination
-	addr2 = addr_dest.addr_bytes[5];//Seconde partie du champs vl de l'adresse destination
-	vlid = ((u_int16_t)addr1 << 8) + addr2;//de la tambouille c comme on aime pour récuperer l'info qui nous interesse
+	addr1 = addr_dest.addr_bytes[4];		// première partie du champs vl de l'adresse destination
+	addr2 = addr_dest.addr_bytes[5];		// Seconde partie du champs vl de l'adresse destination
+	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 	dst_port = l2fwd_vl_dst_ports[vlid];
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
@@ -205,6 +214,37 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	{
 		port_statistics[dst_port].tx += sent;
 	}
+}
+
+static void
+l2fwd_mcvl_forward(struct rte_mbuf *m)
+{
+	uint16_t vlid;
+	struct ether_addr addr_dest;
+	uint8_t addr1;
+	uint8_t addr2;
+	int sent;
+	unsigned dst_port;
+	struct rte_eth_dev_tx_buffer *buffer;
+	struct ether_hdr *eth_h;
+	eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
+
+	addr_dest = eth_h->d_addr;
+	addr1 = addr_dest.addr_bytes[4];		// première partie du champs vl de l'adresse destination
+	addr2 = addr_dest.addr_bytes[5];		// Seconde partie du champs vl de l'adresse destination
+	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
+	port_node_t *node = l2fwd_mcast_vl_dst_ports[vlid];
+	while(node) { // itére sur la liste des ports lié à ce VL
+    	unsigned dst_port = node->port_id;
+    	buffer = tx_buffer[dst_port];
+		sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+		if (sent)
+		{
+			port_statistics[dst_port].tx += sent;
+		}
+    	node = node->next;
+	}
+	
 }
 
 void load_routes(const char *filename)
@@ -216,7 +256,48 @@ void load_routes(const char *filename)
 		perror("Impossible d'ouvrir le fichier route");
 		return;
 	}
+#ifdef MCASTVLFORWARD
+	/* Initialise les listes */
+	for (int i = 0; i < RTE_MAX_VLPORTS; i++)
+	{
+		l2fwd_mcast_vl_dst_ports[i] = NULL;
+	}
 
+	char buffer[256];
+
+	while (fgets(buffer, sizeof(buffer), fp))
+	{
+
+		char *token = strtok(buffer, " \t\n");
+		if (!token)
+			continue;
+
+		int vlid = atoi(token);
+
+		if (vlid < 0 || vlid >= RTE_MAX_VLPORTS)
+		{
+			fprintf(stderr, "VLID hors limites : %d\n", vlid);
+			continue;
+		}
+
+		/* Lire tous les ports restant sur la ligne */
+		while ((token = strtok(NULL, " \t\n")) != NULL)
+		{
+			unsigned port_id = (unsigned)atoi(token);
+
+			port_node_t *new_node = malloc(sizeof(port_node_t));
+			if (!new_node)
+			{
+				fprintf(stderr, "Erreur d'allocation mémoire\n");
+				break;
+			}
+
+			new_node->port_id = port_id;
+			new_node->next = l2fwd_mcast_vl_dst_ports[vlid]; // insertion en tête
+			l2fwd_mcast_vl_dst_ports[vlid] = new_node;
+		}
+	}
+#else
 	int vlid, port_id;
 
 	while (fscanf(fp, "%d %d", &vlid, &port_id) == 2)
@@ -230,7 +311,7 @@ void load_routes(const char *filename)
 			fprintf(stderr, "VLID hors limites : %d\n", vlid);
 		}
 	}
-
+#endif
 	fclose(fp);
 }
 
@@ -331,27 +412,22 @@ l2fwd_main_loop(void)
 									 pkts_burst, MAX_PKT_BURST);
 
 			port_statistics[portid].rx += nb_rx;
+			for (j = 0; j < nb_rx; j++)
+			{
+				m = pkts_burst[j];
+				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 
 #ifdef FORWARD
-			for (j = 0; j < nb_rx; j++)
-			{
-				m = pkts_burst[j];
-				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 				l2fwd_simple_forward(m, portid);
-			}
 #endif
 #ifdef VLFORWARD
-			for (j = 0; j < nb_rx; j++)
-			{
-				m = pkts_burst[j];
-				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 				l2fwd_vl_forward(m);
 				// not sure what to do more here...
-			}
 #endif
 #ifdef MCASTVLFORWARD
-			//TODO: add VLMulticast
+				l2fwd_mcvl_forward(m);
 #endif
+			}
 		}
 	}
 }
