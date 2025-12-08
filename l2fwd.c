@@ -44,6 +44,7 @@ static volatile bool force_quit;
 #define NB_MBUF 8192
 
 /* le routage employé*/
+// #define MCASTVLFORWARD
 #define VLFORWARD
 // #define FORWARD
 
@@ -70,6 +71,7 @@ static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
 
 #define RTE_MAX_VLPORTS 65535
 static uint32_t l2fwd_vl_dst_ports[RTE_MAX_VLPORTS];
+void load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
 
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
@@ -347,6 +349,9 @@ l2fwd_main_loop(void)
 				// not sure what to do more here...
 			}
 #endif
+#ifdef MCASTVLFORWARD
+			//TODO: add VLMulticast
+#endif
 		}
 	}
 }
@@ -610,7 +615,7 @@ int main(int argc, char **argv)
 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++)
 		l2fwd_dst_ports[portid] = 0;
 	/* reset l2fwd_vl_dst_ports */
-	for (vlid = 0; vlid < RTE_MAX_VLPORTS; vlid++)
+	for (uint16_t vlid = 0; vlid < RTE_MAX_VLPORTS; vlid++)
 		l2fwd_vl_dst_ports[vlid] = 0;
 	load_routes("route.txt");
 	last_port = 0;
