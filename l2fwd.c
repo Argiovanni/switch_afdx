@@ -210,6 +210,14 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	addr1 = addr_dest.addr_bytes[4];		// première partie du champs vl de l'adresse destination
 	addr2 = addr_dest.addr_bytes[5];		// Seconde partie du champs vl de l'adresse destination
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
+	
+	/* sécurité : VL hors limites */
+	if (vlid >= MAX_VL_PORT)
+	{
+		rte_pktmbuf_free(m);
+		return;
+	}
+
 	dst_port = l2fwd_vl_dst_ports[vlid];
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
@@ -229,25 +237,61 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	int sent;
 	unsigned dst_port;
 	struct rte_eth_dev_tx_buffer *buffer;
-	struct ether_hdr *eth_h;
-	eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
+	struct ether_hdr *eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
+
+	struct rte_mbuf *copied_msg = rte_pktmbuf_clone(m, l2fwd_pktmbuf_pool);
+	// copie m car le buffer est consomé par l'envoie
 
 	addr_dest = eth_h->d_addr;
 	addr1 = addr_dest.addr_bytes[4];		// première partie du champs vl de l'adresse destination
 	addr2 = addr_dest.addr_bytes[5];		// Seconde partie du champs vl de l'adresse destination
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
+
+	/* sécurité : VL hors limites */
+	if (vlid >= MAX_VL_PORT)
+	{
+		rte_pktmbuf_free(m);
+		return;
+	}
+
 	port_node_t *node = l2fwd_mcast_vl_dst_ports[vlid];
-	while(node) { // itére sur la liste des ports lié à ce VL
-    	unsigned dst_port = node->port_id;
-    	buffer = tx_buffer[dst_port];
-		sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+	if (!node)
+	{
+		rte_pktmbuf_free(m);
+		return;
+	}
+
+	/* premier envoi : on utilise le mbuf original */
+	dst_port = node->port_id;
+	buffer = tx_buffer[dst_port];
+	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+	if (sent)
+	{
+		port_statistics[dst_port].tx += sent;
+	}
+
+	node = node->next;
+
+	/* envois suivants : clones pour chaque port */
+	while (node)
+	{ // itére sur la liste des ports lié à ce VL
+		struct rte_mbuf *copied_msg = rte_pktmbuf_clone(m, l2fwd_pktmbuf_pool);
+		// copie m car le buffer est consommé par l'envoie
+		if (!copied_msg)
+		{
+			port_statistics[node->port_id].tx_dropped++;
+			node = node->next;
+			continue;
+		}
+		dst_port = node->port_id;
+		buffer = tx_buffer[dst_port];
+		sent = rte_eth_tx_buffer(dst_port, 0, buffer, copied_msg);
 		if (sent)
 		{
 			port_statistics[dst_port].tx += sent;
 		}
-    	node = node->next;
+		node = node->next;
 	}
-	
 }
 
 void load_routes(const char *filename)
