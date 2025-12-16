@@ -122,7 +122,7 @@ struct l2fwd_port_statistics
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
-static time_t port_start[RTE_MAX_VL_PORT];
+static time_t port_start[RTE_MAX_VLPORTS];
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 10; /* default period is 10 seconds */
@@ -158,7 +158,9 @@ print_stats(void)
 			   portid,
 			   port_statistics[portid].tx,
 			   port_statistics[portid].rx,
-			   port_statistics[portid].dropped);
+			   port_statistics[portid].dropped,
+			   port_statistics[portid].max_time);
+		printf("Max active time: %19"PRIu64 " seconds", port_statistics[portid].max_time);
 
 		total_packets_dropped += port_statistics[portid].dropped;
 		total_packets_tx += port_statistics[portid].tx;
@@ -212,7 +214,7 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 	
 	/* sécurité : VL hors limites */
-	if (vlid >= RTE_MAX_VL_PORT)
+	if (vlid >= RTE_MAX_VLPORTS)
 	{
 		rte_pktmbuf_free(m);
 		return;
@@ -248,7 +250,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 
 	/* sécurité : VL hors limites */
-	if (vlid >= RTE_MAX_VL_PORT)
+	if (vlid >= RTE_MAX_VLPORTS)
 	{
 		rte_pktmbuf_free(m);
 		return;
@@ -439,8 +441,10 @@ l2fwd_main_loop(void)
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
 
 				if (sent)
+				{
 					port_statistics[portid].max_time = (port_statistics[portid].max_time>(time(NULL)-port_start[portid]))?port_statistics[portid].max_time:time(NULL)-port_start[portid];
 					port_statistics[portid].tx += sent;
+				}
 			}
 
 			/* if timer is enabled */
