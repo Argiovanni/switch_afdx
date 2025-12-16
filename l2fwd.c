@@ -854,7 +854,7 @@ int main(int argc, char **argv)
 					 ret, (unsigned)portid);
 
 		rte_eth_macaddr_get(portid, &l2fwd_ports_eth_addr[portid]);
-
+				
 		/* init one RX queue */
 		fflush(stdout);
 		ret = rte_eth_rx_queue_setup(portid, 0, nb_rxd,
@@ -913,6 +913,8 @@ int main(int argc, char **argv)
 
 		/* initialize port stats */
 		memset(&port_statistics, 0, sizeof(port_statistics));
+		memset(port_start, 0, sizeof(port_start));
+
 	}
 
 	if (!nb_ports_available)
