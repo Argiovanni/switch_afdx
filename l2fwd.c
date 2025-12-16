@@ -122,7 +122,7 @@ struct l2fwd_port_statistics
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
-static time_t port_start[RTE_MAX_VLPORTS];
+static uint64_t port_start[RTE_MAX_VLPORTS];
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 10; /* default period is 10 seconds */
@@ -159,7 +159,9 @@ print_stats(void)
 			   port_statistics[portid].tx,
 			   port_statistics[portid].rx,
 			   port_statistics[portid].dropped);
-		printf("Max active time: %19"PRIu64 " seconds", port_statistics[portid].max_time);
+		printf("Max active time: %" PRIu64 " us\n",
+			port_statistics[portid].max_time);
+
 
 		total_packets_dropped += port_statistics[portid].dropped;
 		total_packets_tx += port_statistics[portid].tx;
@@ -442,7 +444,15 @@ l2fwd_main_loop(void)
 
 				if (sent)
 				{
-					port_statistics[portid].max_time = (port_statistics[portid].max_time>(time(NULL)-port_start[portid]))?port_statistics[portid].max_time:time(NULL)-port_start[portid];
+					uint64_t now = rte_get_timer_cycles();
+					uint64_t hz  = rte_get_timer_hz();
+
+					uint64_t diff_us = (now - port_start[portid]) * 1000000 / hz;
+					port_start[portid] = 0;
+
+					if (diff_us > port_statistics[portid].max_time)
+						port_statistics[portid].max_time = diff_us;
+
 					port_statistics[portid].tx += sent;
 				}
 			}
@@ -480,7 +490,8 @@ l2fwd_main_loop(void)
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
 									 pkts_burst, MAX_PKT_BURST);
-			port_start[portid] = time(NULL);
+			if (port_start[portid] == 0)
+				port_start[portid] = rte_get_timer_cycles();
 			port_statistics[portid].rx += nb_rx;
 			for (j = 0; j < nb_rx; j++)
 			{
