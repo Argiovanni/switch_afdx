@@ -78,7 +78,7 @@ typedef struct port_node
 	unsigned port_id;
 	struct port_node *next;
 } port_node_t;
-static port_node_t l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS];
+static port_node_t* l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS];
 
 	void
 	load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
@@ -158,8 +158,7 @@ print_stats(void)
 			   portid,
 			   port_statistics[portid].tx,
 			   port_statistics[portid].rx,
-			   port_statistics[portid].dropped,
-			   port_statistics[portid].max_time);
+			   port_statistics[portid].dropped,);
 		printf("Max active time: %19"PRIu64 " seconds", port_statistics[portid].max_time);
 
 		total_packets_dropped += port_statistics[portid].dropped;
@@ -256,7 +255,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 		return;
 	}
 
-	port_node_t *node = l2fwd_mcast_vl_dst_ports[vlid];
+	port_node_t *node = l2fwd_mcast_VL_dst_ports[vlid];
 	if (!node)
 	{
 		rte_pktmbuf_free(m);
