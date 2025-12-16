@@ -158,7 +158,7 @@ print_stats(void)
 			   portid,
 			   port_statistics[portid].tx,
 			   port_statistics[portid].rx,
-			   port_statistics[portid].dropped,);
+			   port_statistics[portid].dropped);
 		printf("Max active time: %19"PRIu64 " seconds", port_statistics[portid].max_time);
 
 		total_packets_dropped += port_statistics[portid].dropped;
