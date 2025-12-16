@@ -490,7 +490,10 @@ l2fwd_main_loop(void)
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
 									 pkts_burst, MAX_PKT_BURST);
-			if (port_start[portid] == 0)
+			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
+                         pkts_burst, MAX_PKT_BURST);
+
+			if (nb_rx > 0 && port_start[portid] == 0)
 				port_start[portid] = rte_get_timer_cycles();
 			port_statistics[portid].rx += nb_rx;
 			for (j = 0; j < nb_rx; j++)
