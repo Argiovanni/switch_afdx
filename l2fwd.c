@@ -78,7 +78,7 @@ typedef struct port_node
 	unsigned port_id;
 	struct port_node *next;
 } port_node_t;
-static port_node_t l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS]
+static port_node_t l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS];
 
 	void
 	load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
@@ -118,11 +118,11 @@ struct l2fwd_port_statistics
 	uint64_t tx;
 	uint64_t rx;
 	uint64_t dropped;
-	time_t max_time = 0;
+	time_t max_time;
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
-static time_t[rte_eth_dev_count()] port_start;
+static time_t port_start[RTE_MAX_VL_PORT];
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 10; /* default period is 10 seconds */
@@ -212,7 +212,7 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 	
 	/* sécurité : VL hors limites */
-	if (vlid >= MAX_VL_PORT)
+	if (vlid >= RTE_MAX_VL_PORT)
 	{
 		rte_pktmbuf_free(m);
 		return;
@@ -240,7 +240,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	struct ether_hdr *eth_h = rte_pktmbuf_mtod(m, struct ether_hdr *);
 
 	struct rte_mbuf *copied_msg = rte_pktmbuf_clone(m, l2fwd_pktmbuf_pool);
-	// copie m car le buffer est consomé par l'envoie
+	// copie m car le buffer est consomé par l'envoi
 
 	addr_dest = eth_h->d_addr;
 	addr1 = addr_dest.addr_bytes[4];		// première partie du champs vl de l'adresse destination
@@ -248,7 +248,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	vlid = ((u_int16_t)addr1 << 8) + addr2; // de la tambouille c comme on aime pour récuperer l'info qui nous interesse
 
 	/* sécurité : VL hors limites */
-	if (vlid >= MAX_VL_PORT)
+	if (vlid >= RTE_MAX_VL_PORT)
 	{
 		rte_pktmbuf_free(m);
 		return;
@@ -362,6 +362,23 @@ void load_routes(const char *filename)
 	fclose(fp);
 }
 
+/* Free memory used by multicast routes */
+static void
+free_mcast_routes(void)
+{
+#ifdef MCASTVLFORWARD
+	unsigned i;
+	for (i = 0; i < RTE_MAX_VLPORTS; i++) {
+		port_node_t *node = l2fwd_mcast_vl_dst_ports[i];
+		while (node) {
+			port_node_t *temp = node;
+			node = node->next;
+			free(temp);
+		}
+	}
+#endif
+}
+
 /*
  */
 
@@ -421,7 +438,7 @@ l2fwd_main_loop(void)
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
 
 				if (sent)
-					port_statistics[max_time]= (port_statistics[max_time]>(time.now()-port_start[port_id]))?port_statistics[max_time]:time.now()-port_start[port_id];
+					port_statistics[portid].max_time = (port_statistics[portid].max_time>(time(NULL)-port_start[portid]))?port_statistics[portid].max_time:time(NULL)-port_start[portid];
 					port_statistics[portid].tx += sent;
 			}
 
@@ -458,7 +475,7 @@ l2fwd_main_loop(void)
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
 									 pkts_burst, MAX_PKT_BURST);
-			port_start[port_id] = time.now();
+			port_start[portid] = time(NULL);
 			port_statistics[portid].rx += nb_rx;
 			for (j = 0; j < nb_rx; j++)
 			{
@@ -911,6 +928,9 @@ int main(int argc, char **argv)
 		rte_eth_dev_close(portid);
 		printf(" Done\n");
 	}
+
+	free_mcast_routes();
+
 	printf("Bye...\n");
 
 	return ret;
