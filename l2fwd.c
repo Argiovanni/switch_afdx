@@ -45,8 +45,8 @@ static volatile bool force_quit;
 #define NB_MBUF 8192
 
 /* le routage employé*/
-// #define MCASTVLFORWARD
-#define VLFORWARD
+#define MCASTVLFORWARD
+// #define VLFORWARD
 // #define FORWARD
 
 #define MAX_PKT_BURST 32
@@ -307,9 +307,10 @@ void load_routes(const char *filename)
 	}
 #ifdef MCASTVLFORWARD
 	/* Initialise les listes */
-	for (int i = 0; i < RTE_MAX_VLPORTS; i++)
+	int i;
+	for (i = 0; i < RTE_MAX_VLPORTS; i++)
 	{
-		l2fwd_mcast_vl_dst_ports[i] = NULL;
+		l2fwd_mcast_VL_dst_ports[i] = NULL;
 	}
 
 	char buffer[256];
@@ -342,8 +343,8 @@ void load_routes(const char *filename)
 			}
 
 			new_node->port_id = port_id;
-			new_node->next = l2fwd_mcast_vl_dst_ports[vlid]; // insertion en tête
-			l2fwd_mcast_vl_dst_ports[vlid] = new_node;
+			new_node->next = l2fwd_mcast_VL_dst_ports[vlid]; // insertion en tête
+			l2fwd_mcast_VL_dst_ports[vlid] = new_node;
 		}
 	}
 #else
@@ -371,7 +372,7 @@ free_mcast_routes(void)
 #ifdef MCASTVLFORWARD
 	unsigned i;
 	for (i = 0; i < RTE_MAX_VLPORTS; i++) {
-		port_node_t *node = l2fwd_mcast_vl_dst_ports[i];
+		port_node_t *node = l2fwd_mcast_VL_dst_ports[i];
 		while (node) {
 			port_node_t *temp = node;
 			node = node->next;
