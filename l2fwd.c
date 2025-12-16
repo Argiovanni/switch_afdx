@@ -264,7 +264,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	/* premier envoi : on utilise le mbuf original */
 	dst_port = node->port_id;
 	buffer = tx_buffer[dst_port];
-	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
+	sent = rte_eth_tx_buffer(dst_port, 0, buffer, copied_msg);
 	if (sent)
 	{
 		port_statistics[dst_port].tx += sent;
@@ -279,7 +279,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 		// copie m car le buffer est consommé par l'envoie
 		if (!copied_msg)
 		{
-			port_statistics[node->port_id].tx_dropped++;
+			port_statistics[node->port_id].dropped++;
 			node = node->next;
 			continue;
 		}
@@ -292,6 +292,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 		}
 		node = node->next;
 	}
+	rte_pktmbuf_free(m);
 }
 
 void load_routes(const char *filename)
