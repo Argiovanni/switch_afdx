@@ -313,7 +313,7 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 		{
 			port_statistics[dst_port].tx += sent;
 		}
-			uint64_t t_in  = m->udata64;
+		uint64_t t_in  = m->udata64;
 		uint64_t t_out = rte_get_timer_cycles();
 		uint64_t hz    = rte_get_timer_hz();
 
