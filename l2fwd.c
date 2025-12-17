@@ -158,7 +158,7 @@ print_stats(void)
 			   port_statistics[portid].tx,
 			   port_statistics[portid].rx,
 			   port_statistics[portid].dropped);
-		printf("Max active time: %" PRIu64 " us\n",
+		printf("\nMax active time: %" PRIu64 " us\n",
 			port_statistics[portid].max_time);
 
 
@@ -184,6 +184,14 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	struct rte_eth_dev_tx_buffer *buffer;
 
 	dst_port = l2fwd_dst_ports[portid];
+	uint64_t t_in  = m->udata64;
+	uint64_t t_out = rte_get_timer_cycles();
+	uint64_t hz    = rte_get_timer_hz();
+
+	uint64_t diff_us = (t_out - t_in) * 1000000 / hz;
+
+	if (diff_us > port_statistics[dst_port].max_time)
+		port_statistics[dst_port].max_time = diff_us;
 
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
@@ -221,6 +229,14 @@ l2fwd_vl_forward(struct rte_mbuf *m)
 	}
 
 	dst_port = l2fwd_vl_dst_ports[vlid];
+	uint64_t t_in  = m->udata64;
+	uint64_t t_out = rte_get_timer_cycles();
+	uint64_t hz    = rte_get_timer_hz();
+
+	uint64_t diff_us = (t_out - t_in) * 1000000 / hz;
+
+	if (diff_us > port_statistics[dst_port].max_time)
+		port_statistics[dst_port].max_time = diff_us;
 	buffer = tx_buffer[dst_port];
 	sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
 	if (sent)
@@ -271,6 +287,14 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 	{
 		port_statistics[dst_port].tx += sent;
 	}
+	uint64_t t_in  = m->udata64;
+	uint64_t t_out = rte_get_timer_cycles();
+	uint64_t hz    = rte_get_timer_hz();
+
+	uint64_t diff_us = (t_out - t_in) * 1000000 / hz;
+
+	if (diff_us > port_statistics[dst_port].max_time)
+		port_statistics[dst_port].max_time = diff_us;
 
 	node = node->next;
 
@@ -292,8 +316,17 @@ l2fwd_mcvl_forward(struct rte_mbuf *m)
 		{
 			port_statistics[dst_port].tx += sent;
 		}
+			uint64_t t_in  = m->udata64;
+		uint64_t t_out = rte_get_timer_cycles();
+		uint64_t hz    = rte_get_timer_hz();
+
+		uint64_t diff_us = (t_out - t_in) * 1000000 / hz;
+
+		if (diff_us > port_statistics[dst_port].max_time)
+			port_statistics[dst_port].max_time = diff_us;
 		node = node->next;
 	}
+
 	rte_pktmbuf_free(m);
 }
 
