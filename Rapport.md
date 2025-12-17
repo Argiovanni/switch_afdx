@@ -34,6 +34,13 @@ D $_{commutation~max~port~1}$=705ns
 on obtient donc des valeurs bien inférieures a 8µs (délai de certification).
 
 ### 3.VL MultiCast
+
+Dans ce second cas, on active la macro
+```c
+#define MCASTVLFORWARD
+// #define VLFORWARD
+// #define FORWARD
+```
 Dans ce second cas, les 2000 trames sont envoyés vers le port 0, encore une fois alternativement sur vl 1 et 2.
 
 la table de comutation [](route_vl-mcast.txt) est un fichier texte dont les lignes sont de cette forme:
