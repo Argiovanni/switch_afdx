@@ -80,8 +80,7 @@ typedef struct port_node
 } port_node_t;
 static port_node_t* l2fwd_mcast_VL_dst_ports[RTE_MAX_VLPORTS];
 
-	void
-	load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
+void load_routes(const char *filename); // initialize léfwd_vl_dst_ports from external file
 
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
@@ -797,7 +796,12 @@ int main(int argc, char **argv)
 	/* reset l2fwd_vl_dst_ports */
 	for (vlid = 0; vlid < RTE_MAX_VLPORTS; vlid++)
 		l2fwd_vl_dst_ports[vlid] = 0;
-	load_routes("route.txt");
+	#ifdef VLFORWARD
+	load_routes("route_vl-fwd.txt");
+	#endif
+	#ifdef MCASTVLFORWARD
+	load_routes("route_vl-mcast.txt");
+	# endif 
 	last_port = 0;
 	/*
 	 * Each logical core is assigned a dedicated TX queue on each port.
