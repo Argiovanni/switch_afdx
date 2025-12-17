@@ -122,7 +122,6 @@ struct l2fwd_port_statistics
 } __rte_cache_aligned;
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
-static uint64_t port_start[RTE_MAX_VLPORTS];
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 10; /* default period is 10 seconds */
@@ -443,18 +442,8 @@ l2fwd_main_loop(void)
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
 
 				if (sent)
-				{
-					uint64_t now = rte_get_timer_cycles();
-					uint64_t hz  = rte_get_timer_hz();
-
-					uint64_t diff_us = (now - port_start[portid]) * 1000000 / hz;
-					port_start[portid] = 0;
-
-					if (diff_us > port_statistics[portid].max_time)
-						port_statistics[portid].max_time = diff_us;
-
 					port_statistics[portid].tx += sent;
-				}
+				
 			}
 
 			/* if timer is enabled */
@@ -493,12 +482,11 @@ l2fwd_main_loop(void)
 			nb_rx = rte_eth_rx_burst((uint8_t)portid, 0,
                          pkts_burst, MAX_PKT_BURST);
 
-			if (nb_rx > 0 && port_start[portid] == 0)
-				port_start[portid] = rte_get_timer_cycles();
 			port_statistics[portid].rx += nb_rx;
 			for (j = 0; j < nb_rx; j++)
 			{
 				m = pkts_burst[j];
+				m->udata64 = rte_get_tsc_cycles();
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 
 #ifdef FORWARD
@@ -916,7 +904,6 @@ int main(int argc, char **argv)
 
 		/* initialize port stats */
 		memset(&port_statistics, 0, sizeof(port_statistics));
-		memset(port_start, 0, sizeof(port_start));
 
 	}
 
