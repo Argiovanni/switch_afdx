@@ -20,10 +20,10 @@ eth2<->port 1
 Pour calculer le timing de réception, on utilise la fonction `m->udata64 = rte_get_tsc_cycles();` qui charge dans le [champ data utilisateur](https://doc.dpdk.org/api-2.0/structrte__mbuf.html#afd0ffb02780e738d4c0a10ab833b7834) de la trame le timing d'entrée de la trame (lors de sa lecture dans le buffer) dans le commutateur. Ensuite, nous calculons la fin du timing lorsque la trame est introduite dans le buffer d'envoi. 
 ``` c
 uint64_t t_in  = m->udata64;
-		uint64_t t_out = rte_get_timer_cycles();
-		uint64_t hz    = rte_get_timer_hz();
+uint64_t t_out = rte_get_timer_cycles();
+uint64_t hz    = rte_get_timer_hz();
 
-		uint64_t diff_ns = (t_out - t_in) * 1000000000 / hz;
+uint64_t diff_ns = (t_out - t_in) * 1000000000 / hz;
 ```
 Nous ne conserverons pour chaque port que le délai maximal puisque nous ne sommes intéressés que par celui-ci dans le cadre de sa certification.
 ### 2.VL forwarding
@@ -70,12 +70,13 @@ On obtient donc des valeurs bien inférieures à 8 µs (délai de certification)
 
 ### 3.VL Multicast
 
+Dans ce second cas, on active la macro
+
 ```c
 #define MCASTVLFORWARD
 // #define VLFORWARD
 // #define FORWARD
 ```
-Dans ce second cas, on active la macro
 
 ```c
 
@@ -135,7 +136,7 @@ On obtient donc aussi des valeurs bien inférieures à 8 µs (délai de certific
 
 On observe une inversion des maxima dans le cas de l'inversion de l'ordre dans la table de commutation. En effet, la structure est un tableau de listes chaînées, la tête est alors la fin de la ligne sur la table de commutation.
 ### 4.Critique de la méthode
-Notre méthodologie met en évidence des délais largement satisfaisants. Le BAG permettrait d'espacer les envois de trames, et donc d'éviter des drops et des saturations côté switch. Notre démo montre toutefois qu'avec un débit continu, les paquets sont bien transmis au niveau du switch, et donc que le BAG ne pourrait qu'améliorer la situation.
+Notre méthodologie met en évidence des délais largement satisfaisants. Cependant, les valeurs mesurées ne sont pas constantes et résultent de quelques observations (mais aucune de ces dernières n’a fait état d’un délai excessif). Le BAG permettrait d’espacer les envois de trames et donc d’éviter des pertes et des saturations côté switch. Notre démonstration montre toutefois qu’avec un débit continu, les paquets sont correctement transmis au niveau du switch, et donc que le BAG ne pourrait qu’améliorer la situation.
 
 Fun Fact: au départ, le port 1 n'était pas physiquement connecté, le buffer d'envoi se sature alors avec 542 paquets. 
 
